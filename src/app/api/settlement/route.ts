@@ -23,7 +23,9 @@ async function handle(req: NextRequest) {
     if (!user?.isAdmin) return fail("Unauthorized", 401);
   }
 
-  const forceSync = await shouldForceMatchSync();
+  const forceSync = authorizedByCron
+    ? true
+    : await shouldForceMatchSync();
   const { synced, summary, skippedReason, lastSyncAt } =
     await runMatchSyncIfDue(forceSync);
   const settled = await settleAllFinished();

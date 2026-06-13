@@ -79,10 +79,11 @@ Fixtures are stored in the database. **Page visits never call the sports API** �
 
 Background jobs keep data fresh:
 
-- **Daily** — `GET /api/cron/sync-matches` (Vercel cron at 23:00 UTC ≈ midnight WAT) pulls the full fixture list and upserts it.
-- **Every 30 minutes** — `/api/settlement` settles finished matches. It only re-syncs from the API when a match is live, finished, or within ±4 hours of kickoff; otherwise it skips the pull if data is younger than `MATCH_SYNC_INTERVAL_HOURS` (default 24h).
+- **Daily** — `/api/settlement` (Vercel cron at 23:00 UTC ≈ midnight WAT) syncs fixtures from the API, upserts them, and settles finished matches. Page routes read from the DB only.
 
-Admins can also run either job manually from `/admin` or with the `x-cron-secret` header.
+> **Vercel Hobby (free):** cron jobs may run **once per day** only. Expressions like `*/30 * * * *` fail at deploy time. For settlement more often than daily (e.g. during live matches), upgrade to Pro or trigger `/api/settlement` from an external scheduler with your `CRON_SECRET`.
+
+Admins can also run settlement manually from `/admin` or with the `x-cron-secret` header. `/api/cron/sync-matches` remains available for a fixtures-only pull.
 
 Predictions **open** at **00:00 on the calendar day before kickoff** in `MATCH_DAY_TIMEZONE` (default `Africa/Lagos`, WAT). They **lock** at kickoff. Example: a Tuesday 2am WAT kickoff is open from Monday 00:00 WAT.
 
