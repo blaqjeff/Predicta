@@ -1,0 +1,212 @@
+"use client";
+
+import { useState } from "react";
+import { api } from "@/lib/fetcher";
+import { useSession, SessionUser } from "./SessionProvider";
+import { connectWallet, signLoginMessage } from "@/lib/solanaClient";
+
+type Method = "email" | "wallet" | "x";
+
+export function AuthDialog({
+  open,
+  onClose,
+  title = "Sign in",
+}: {
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+}) {
+  const { refresh } = useSession();
+  const [method, setMethod] = useState<Method>("email");
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="card w-full max-w-md p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">{title}</h2>
+          <button
+            className="text-[var(--muted)] hover:text-[var(--foreground)]"
+            onClick={onClose}
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="mb-5 grid grid-cols-3 gap-2 rounded-lg border border-[var(--border)] p-1">
+          {(["email", "wallet", "x"] as Method[]).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMethod(m)}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium capitalize transition ${
+                method === m
+                  ? "bg-[var(--surface-2)] text-[var(--foreground)]"
+                  : "text-[var(--muted)] hover:text-[var(--foreground)]"
+              }`}
+            >
+              {m === "x" ? "X" : m}
+            </button>
+          ))}
+        </div>
+
+        {method === "email" && (
+          <EmailLogin
+            onDone={async () => {
+              await refresh();
+              onClose();
+            }}
+          />
+        )}
+        {method === "wallet" && (
+          <WalletLogin
+            onDone={async () => {
+              await refresh();
+              onClose();
+            }}
+          />
+        )}
+        {method === "x" && <XLogin />}
+      </div>
+    </div>
+  );
+}
+
+function EmailLogin({ onDone }: { onDone: () => void }) {
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [stage, setStage] = useState<"email" | "code">("email");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function sendCode() {
+    setError(null);
+    setBusy(true);
+    try {
+      await api("/api/auth/email/start", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+      setStage("code");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verify() {
+    setError(null);
+    setBusy(true);
+    try {
+      await api<{ user: SessionUser }>("/api/auth/email/verify", {
+        method: "POST",
+        body: JSON.stringify({ email, code }),
+      });
+      onDone();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="label">Email</label>
+        <input
+          className="input"
+          type="email"
+          placeholder="you@example.com"
+          value={email}
+          disabled={stage === "code"}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      </div>
+      {stage === "code" && (
+        <div>
+          <label className="label">6-digit code</label>
+          <input
+            className="input tracking-widest"
+            inputMode="numeric"
+            placeholder="123456"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+          />
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            No email provider configured? Check the server console for the code.
+          </p>
+        </div>
+      )}
+      {error && <p className="text-sm text-red-400">{error}</p>}
+      {stage === "email" ? (
+        <button className="btn-primary w-full" disabled={busy || !email} onClick={sendCode}>
+          {busy ? "Sending..." : "Send code"}
+        </button>
+      ) : (
+        <button className="btn-primary w-full" disabled={busy || code.length !== 6} onClick={verify}>
+          {busy ? "Verifying..." : "Verify & sign in"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function WalletLogin({ onDone }: { onDone: () => void }) {
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function signIn() {
+    setError(null);
+    setBusy(true);
+    try {
+      const pubkey = await connectWallet();
+      const { nonce, message } = await api<{ nonce: string; message: string }>(
+        `/api/auth/wallet/nonce?pubkey=${encodeURIComponent(pubkey)}`
+      );
+      const signature = await signLoginMessage(message);
+      await api("/api/auth/wallet/verify", {
+        method: "POST",
+        body: JSON.stringify({ pubkey, signature, nonce }),
+      });
+      onDone();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-[var(--muted)]">
+        Connect a Solana wallet and sign a message to prove ownership. This wallet
+        becomes your reward wallet automatically. No fee, no transaction.
+      </p>
+      {error && <p className="text-sm text-red-400">{error}</p>}
+      <button className="btn-accent2 w-full" disabled={busy} onClick={signIn}>
+        {busy ? "Waiting for wallet..." : "Connect & sign"}
+      </button>
+    </div>
+  );
+}
+
+function XLogin() {
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-[var(--muted)]">
+        Sign in with X. Your X handle becomes your prediction username.
+      </p>
+      <a className="btn-ghost w-full" href="/api/auth/x/start">
+        Continue with X
+      </a>
+    </div>
+  );
+}
