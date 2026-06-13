@@ -2,13 +2,19 @@ import { prisma } from "./prisma";
 import { parseJson } from "./json";
 import { scorePrediction, MatchResult, PredictionValue } from "./scoring";
 import { CategoryKey } from "./categories";
-import { fetchCompetitionMatches, isSportsApiConfigured } from "./sportsApi";
+import {
+  fetchCompetitionMatches,
+  getLastFootballDataRateLimit,
+  isSportsApiConfigured,
+  type FootballDataRateLimit,
+} from "./sportsApi";
 import { postResultCommitment } from "./solana";
 
 export interface SyncSummary {
   created: number;
   updated: number;
   finishedWithResult: number;
+  rateLimit?: FootballDataRateLimit | null;
 }
 
 /** Pulls matches from the free sports API and upserts them by externalId. */
@@ -17,6 +23,7 @@ export async function syncMatchesFromApi(): Promise<SyncSummary> {
   if (!isSportsApiConfigured()) return summary;
 
   const matches = await fetchCompetitionMatches();
+  summary.rateLimit = getLastFootballDataRateLimit();
   for (const m of matches) {
     const existing = await prisma.match.findUnique({
       where: { externalId: m.externalId },

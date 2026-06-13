@@ -63,7 +63,15 @@ printed to the **server console**.
 | `NEXT_PUBLIC_REVERT_FEE_SOL` / `_USDC` | Flat revert fee amounts (manually adjustable). |
 | `ORACLE_SECRET_KEY` | Signer that posts result-hash commitments onchain. Optional. |
 | `CRON_SECRET` | Authorizes the settlement endpoint for schedulers. |
-| `FOOTBALL_DATA_TOKEN` | Free football-data.org token (covers the World Cup via `WC`). |
+| `FOOTBALL_DATA_TOKEN` | Free football-data.org token (covers the World Cup via `WC`). Sent as the `X-Auth-Token` header. |
+| `FOOTBALL_DATA_COMPETITION` | League code (default `WC` = FIFA World Cup). |
+
+The client reads football-data.org **response headers** on every call to avoid hitting the rate limiter:
+
+- `X-RequestsAvailable` (or on the free tier, `X-Requests-Available-Minute`) - requests left before you are blocked
+- `X-RequestCounter-Reset` - seconds until the counter resets
+
+If quota is exhausted the client waits for the reset window; HTTP 429 triggers one automatic retry. Settlement responses include the last observed rate-limit snapshot as `footballDataRateLimit`.
 
 ## How it works
 

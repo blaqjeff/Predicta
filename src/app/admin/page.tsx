@@ -59,12 +59,21 @@ function SettlementCard() {
     setBusy(true);
     setResult(null);
     try {
-      const d = await api<{ settledMatches: number; sync: unknown }>(
-        "/api/settlement",
-        { method: "POST" }
-      );
+      const d = await api<{
+        settledMatches: number;
+        footballDataRateLimit?: {
+          requestsAvailable: number | null;
+          counterResetSeconds: number | null;
+          authenticatedClient: string | null;
+        } | null;
+      }>("/api/settlement", { method: "POST" });
+      const rl = d.footballDataRateLimit;
+      const quota =
+        rl?.requestsAvailable != null
+          ? ` API quota: ${rl.requestsAvailable} request(s) left${rl.counterResetSeconds != null ? `, resets in ${rl.counterResetSeconds}s` : ""}.`
+          : "";
       setResult(
-        `Synced from sports API and settled ${d.settledMatches} match(es).`
+        `Synced from sports API and settled ${d.settledMatches} match(es).${quota}`
       );
     } catch (e) {
       setResult((e as Error).message);

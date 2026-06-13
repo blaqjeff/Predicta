@@ -29,6 +29,7 @@ async function handle(req: NextRequest) {
     sync,
     settledMatches: settled.length,
     details: settled,
+    footballDataRateLimit: sync.rateLimit ?? null,
   });
 }
 

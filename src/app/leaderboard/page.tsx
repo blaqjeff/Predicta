@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Trophy } from "@phosphor-icons/react";
 import { api } from "@/lib/fetcher";
 import { formatPoints } from "@/lib/format";
 import { useSession } from "@/components/SessionProvider";
@@ -58,8 +59,11 @@ export default function LeaderboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Leaderboard</h1>
-        <p className="text-sm text-[var(--muted)]">
+        <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
+          <Trophy weight="duotone" className="size-7 text-[var(--accent)]" />
+          Leaderboard
+        </h1>
+        <p className="mt-1 text-sm text-[var(--muted)]">
           Points are weighted by how hard each category is to call.
         </p>
       </div>
@@ -117,27 +121,39 @@ export default function LeaderboardPage() {
                 </td>
               </tr>
             ) : (
-              entries.map((e) => (
-                <tr
-                  key={e.userId}
-                  className={`border-b border-[var(--border)]/50 ${
-                    e.userId === user?.id ? "bg-[var(--surface-2)]" : ""
-                  }`}
-                >
-                  <td className="px-4 py-3 font-bold" style={{ color: accent }}>
-                    #{e.rank}
-                  </td>
-                  <td className="px-4 py-3">
-                    @{e.username}
-                    {e.xHandle && (
-                      <span className="ml-2 chip">X · @{e.xHandle}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono">
-                    {formatPoints(e.totalPoints)}
-                  </td>
-                </tr>
-              ))
+              entries.map((e) => {
+                const top3 = (e.rank ?? 99) <= 3;
+                return (
+                  <tr
+                    key={e.userId}
+                    className={`border-b border-[var(--border)]/60 transition-colors hover:bg-[var(--surface-2)]/60 ${
+                      e.userId === user?.id ? "bg-[var(--surface-2)]" : ""
+                    }`}
+                  >
+                    <td className="px-4 py-3">
+                      <span
+                        className="inline-flex size-7 items-center justify-center rounded-full text-xs font-bold"
+                        style={
+                          top3
+                            ? { background: accent, color: "#04140a" }
+                            : { color: "var(--muted)" }
+                        }
+                      >
+                        {e.rank}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-medium">
+                      @{e.username}
+                      {e.xHandle && (
+                        <span className="ml-2 chip">X · @{e.xHandle}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-semibold">
+                      {formatPoints(e.totalPoints)}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

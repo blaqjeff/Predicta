@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Predicta — Onchain World Cup Predictions",
+  title: "Predicta - Onchain World Cup Predictions",
   description:
     "Predict World Cup matches across weighted categories and climb the onchain leaderboard.",
 };
@@ -31,13 +31,22 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <div className="grain" aria-hidden />
         <SessionProvider>
           <Nav />
           <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
             {children}
           </main>
-          <footer className="border-t border-[var(--border)] py-6 text-center text-xs text-[var(--muted)]">
-            Predicta · Onchain World Cup Predictions · Hybrid Solana app · Devnet by default
+          <footer className="mt-12 border-t border-[var(--border)]">
+            <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-7 text-sm text-[var(--muted)] sm:flex-row">
+              <span>
+                <span className="font-semibold text-[var(--foreground)]">
+                  predict<span className="text-[var(--accent)]">a</span>
+                </span>{" "}
+                · onchain World Cup predictions
+              </span>
+              <span className="chip">Solana · Devnet</span>
+            </div>
           </footer>
         </SessionProvider>
       </body>
