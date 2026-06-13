@@ -6,7 +6,6 @@ import { formatKickoff, isPredictionLocked, isPredictionOpen, isPredictionTooEar
 import { MatchResult } from "@/lib/scoring";
 import { solanaCluster } from "@/lib/config";
 import { MatchPredictions, MatchData } from "@/components/MatchPredictions";
-import { ensureMatchesSynced } from "@/lib/matchSync";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +15,6 @@ export default async function MatchPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  await ensureMatchesSynced();
   const match = await prisma.match.findUnique({ where: { id } });
   if (!match) notFound();
 

@@ -75,7 +75,14 @@ If quota is exhausted the client waits for the reset window; HTTP 429 triggers o
 
 ### Match sync and prediction windows
 
-Fixtures are **not** admin-uploaded. When `FOOTBALL_DATA_TOKEN` is set, visiting `/`, `/matches`, or a match page triggers a throttled sync from football-data.org (max once per 5 minutes per server instance). The settlement cron also syncs every 30 minutes.
+Fixtures are stored in the database. **Page visits never call the sports API** — `/`, `/matches`, and match detail pages only read `Match` rows from Postgres/SQLite.
+
+Background jobs keep data fresh:
+
+- **Daily** — `GET /api/cron/sync-matches` (Vercel cron at 23:00 UTC ≈ midnight WAT) pulls the full fixture list and upserts it.
+- **Every 30 minutes** — `/api/settlement` settles finished matches. It only re-syncs from the API when a match is live, finished, or within ±4 hours of kickoff; otherwise it skips the pull if data is younger than `MATCH_SYNC_INTERVAL_HOURS` (default 24h).
+
+Admins can also run either job manually from `/admin` or with the `x-cron-secret` header.
 
 Predictions **open** at **00:00 on the calendar day before kickoff** in `MATCH_DAY_TIMEZONE` (default `Africa/Lagos`, WAT). They **lock** at kickoff. Example: a Tuesday 2am WAT kickoff is open from Monday 00:00 WAT.
 

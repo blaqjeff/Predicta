@@ -10,7 +10,6 @@ import {
   isPredictionTooEarly,
 } from "@/lib/format";
 import { MatchResult } from "@/lib/scoring";
-import { ensureMatchesSynced } from "@/lib/matchSync";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +24,6 @@ function ResultBadge({ result }: { result: string | null }) {
 }
 
 export default async function MatchesPage() {
-  await ensureMatchesSynced();
-
   const matches = await prisma.match.findMany({
     where: { externalId: { not: null } },
     orderBy: { kickoffAt: "asc" },
@@ -46,8 +43,9 @@ export default async function MatchesPage() {
           Matches
         </h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Fixtures sync from the World Cup API. Predictions open at midnight the
-          day before kickoff (WAT) and lock at kickoff.
+          Fixtures are loaded from the database (updated by the daily sync job).
+          Predictions open at midnight the day before kickoff (WAT) and lock at
+          kickoff.
         </p>
       </div>
 

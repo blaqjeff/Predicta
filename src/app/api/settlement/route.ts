@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { ok, fail, route } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
-import { settleAllFinished, syncMatchesFromApi } from "@/lib/settlement";
+import { runMatchSyncIfDue, shouldForceMatchSync } from "@/lib/matchSync";
+import { settleAllFinished } from "@/lib/settlement";
 
 export const dynamic = "force-dynamic";
 
@@ -22,14 +23,20 @@ async function handle(req: NextRequest) {
     if (!user?.isAdmin) return fail("Unauthorized", 401);
   }
 
-  const sync = await syncMatchesFromApi();
+  const forceSync = await shouldForceMatchSync();
+  const { synced, summary, skippedReason, lastSyncAt } =
+    await runMatchSyncIfDue(forceSync);
   const settled = await settleAllFinished();
 
   return ok({
-    sync,
+    sync: summary,
+    syncRan: synced,
+    syncForced: forceSync,
+    syncSkippedReason: synced ? null : skippedReason,
+    lastMatchSyncAt: lastSyncAt?.toISOString() ?? null,
     settledMatches: settled.length,
     details: settled,
-    footballDataRateLimit: sync.rateLimit ?? null,
+    footballDataRateLimit: summary?.rateLimit ?? null,
   });
 }
 

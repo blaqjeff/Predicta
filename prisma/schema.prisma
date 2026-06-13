@@ -178,6 +178,13 @@ model RevertPayment {
   @@index([predictionId])
 }
 
+/// Key-value store for app-wide settings (e.g. last fixture sync timestamp).
+model AppMeta {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 /// Materialized leaderboard position per user per track.
 model LeaderboardEntry {
   id          String   @id @default(cuid())

@@ -11,7 +11,6 @@ import {
 import { prisma } from "@/lib/prisma";
 import { CATEGORY_DEFS } from "@/lib/categories";
 import { formatKickoff, formatPoints, isPredictionOpen } from "@/lib/format";
-import { ensureMatchesSynced } from "@/lib/matchSync";
 import { Reveal } from "@/components/Reveal";
 
 export const dynamic = "force-dynamic";
@@ -25,8 +24,6 @@ const categoryIcon: Record<string, React.ReactNode> = {
 };
 
 export default async function Home() {
-  await ensureMatchesSynced();
-
   const mainTrack = await prisma.track.findFirst({ where: { isMain: true } });
   const topEntries = mainTrack
     ? await prisma.leaderboardEntry.findMany({
