@@ -119,11 +119,20 @@ also enter results manually and settle individual matches in `/admin`.
 - `npm run dev` / `build` / `start`
 - `npm run db:migrate` / `db:seed` / `db:reset` / `db:generate`
 
-## Production notes
+## Production notes (Vercel)
 
-- Switch `prisma/schema.prisma` `datasource.provider` to `postgresql` and set a
-  Postgres `DATABASE_URL`; the JSON-as-text columns work on both.
+**SQLite does not work on Vercel** — serverless functions have no persistent disk. You need Postgres.
+
+1. In the Vercel project, open **Storage** → **Connect Database** → **Neon** (free tier is fine).
+2. Vercel will add env vars. Map them in **Project → Settings → Environment Variables**:
+   - `DATABASE_URL` → Neon **pooled** connection string (often `POSTGRES_URL` from the integration)
+   - `DIRECT_DATABASE_URL` → Neon **direct** connection string (often `POSTGRES_URL_NON_POOLING`) — required for `prisma migrate deploy` at build time
+3. Set the rest: `SESSION_SECRET`, `CRON_SECRET`, `FOOTBALL_DATA_TOKEN`, `NEXT_PUBLIC_APP_URL` (your production URL), X OAuth redirect URLs, Solana vars, etc.
+4. Redeploy. The build runs `prisma generate`, `prisma migrate deploy`, then `next build`.
+5. After the first successful deploy, seed categories/tracks once (from your machine with production env pulled, or Neon SQL console): `npm run db:seed`
+6. Run settlement once from `/admin` or hit `/api/settlement` with `x-cron-secret` to pull fixtures.
+
+`vercel.json` schedules daily settlement at 23:00 UTC. Vercel Cron on Hobby sends `Authorization: Bearer <CRON_SECRET>`, which the route accepts.
+
 - Set a strong `SESSION_SECRET` and `CRON_SECRET`, real X credentials, a funded
-  treasury, an oracle signer, and mainnet RPC + mainnet USDC mint.
-- `vercel.json` schedules settlement every 30 minutes; Vercel Cron sends
-  `Authorization: Bearer <CRON_SECRET>`, which the route accepts.
+  treasury, an oracle signer, and mainnet RPC + mainnet USDC mint when going live.

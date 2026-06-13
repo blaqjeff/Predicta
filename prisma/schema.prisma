@@ -1,17 +1,17 @@
 // World Cup Onchain Prediction Leaderboard - data model.
 //
-// Local dev uses SQLite for zero-setup. Models avoid SQLite-only features so the
-// same schema works on PostgreSQL in production (switch `provider` + DATABASE_URL).
-// JSON-shaped fields are stored as text (stringified JSON) for DB portability; the
-// app reads/writes them through helpers in src/lib/json.ts.
+// Uses PostgreSQL (Neon on Vercel, or any Postgres locally). JSON-shaped fields
+// are stored as text (stringified JSON) for portability; the app reads/writes them
+// through helpers in src/lib/json.ts.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 model User {

@@ -1,6 +1,8 @@
 -- CreateTable
 CREATE TABLE "AppMeta" (
-    "key" TEXT NOT NULL PRIMARY KEY,
+    "key" TEXT NOT NULL,
     "value" TEXT NOT NULL,
-    "updatedAt" DATETIME NOT NULL
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "AppMeta_pkey" PRIMARY KEY ("key")
 );
