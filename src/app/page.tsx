@@ -10,7 +10,8 @@ import {
 } from "@phosphor-icons/react/dist/ssr";
 import { prisma } from "@/lib/prisma";
 import { CATEGORY_DEFS } from "@/lib/categories";
-import { formatKickoff, formatPoints } from "@/lib/format";
+import { formatKickoff, formatPoints, isPredictionOpen } from "@/lib/format";
+import { ensureMatchesSynced } from "@/lib/matchSync";
 import { Reveal } from "@/components/Reveal";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,8 @@ const categoryIcon: Record<string, React.ReactNode> = {
 };
 
 export default async function Home() {
+  await ensureMatchesSynced();
+
   const mainTrack = await prisma.track.findFirst({ where: { isMain: true } });
   const topEntries = mainTrack
     ? await prisma.leaderboardEntry.findMany({
@@ -33,11 +36,12 @@ export default async function Home() {
         include: { user: { select: { username: true } } },
       })
     : [];
-  const upcoming = await prisma.match.findMany({
-    where: { kickoffAt: { gt: new Date() } },
+  const upcomingRaw = await prisma.match.findMany({
+    where: { externalId: { not: null }, kickoffAt: { gt: new Date() } },
     orderBy: { kickoffAt: "asc" },
-    take: 3,
+    take: 6,
   });
+  const upcoming = upcomingRaw.filter((m) => isPredictionOpen(m.kickoffAt)).slice(0, 3);
 
   return (
     <div className="space-y-24 pb-8">

@@ -1,9 +1,16 @@
 import Link from "next/link";
-import { SoccerBall, ArrowRight } from "@phosphor-icons/react/dist/ssr";
+import { SoccerBall, ArrowRight, Clock } from "@phosphor-icons/react/dist/ssr";
 import { prisma } from "@/lib/prisma";
 import { parseJson } from "@/lib/json";
-import { formatKickoff, isLocked } from "@/lib/format";
+import {
+  formatKickoff,
+  formatPredictionOpensAt,
+  isPredictionLocked,
+  isPredictionOpen,
+  isPredictionTooEarly,
+} from "@/lib/format";
 import { MatchResult } from "@/lib/scoring";
+import { ensureMatchesSynced } from "@/lib/matchSync";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +25,17 @@ function ResultBadge({ result }: { result: string | null }) {
 }
 
 export default async function MatchesPage() {
-  const matches = await prisma.match.findMany({ orderBy: { kickoffAt: "asc" } });
-  const upcoming = matches.filter((m) => !isLocked(m.kickoffAt));
+  await ensureMatchesSynced();
+
+  const matches = await prisma.match.findMany({
+    where: { externalId: { not: null } },
+    orderBy: { kickoffAt: "asc" },
+  });
+
+  const open = matches.filter((m) => isPredictionOpen(m.kickoffAt));
+  const opensSoon = matches.filter((m) => isPredictionTooEarly(m.kickoffAt));
   const past = matches
-    .filter((m) => isLocked(m.kickoffAt))
+    .filter((m) => isPredictionLocked(m.kickoffAt))
     .sort((a, b) => +new Date(b.kickoffAt) - +new Date(a.kickoffAt));
 
   return (
@@ -32,7 +46,8 @@ export default async function MatchesPage() {
           Matches
         </h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Predictions lock at kickoff. One prediction per category per match.
+          Fixtures sync from the World Cup API. Predictions open at midnight the
+          day before kickoff (WAT) and lock at kickoff.
         </p>
       </div>
 
@@ -40,11 +55,13 @@ export default async function MatchesPage() {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
           Open for predictions
         </h2>
-        {upcoming.length === 0 ? (
-          <p className="text-sm text-[var(--muted)]">No open matches right now.</p>
+        {open.length === 0 ? (
+          <p className="text-sm text-[var(--muted)]">
+            No matches open right now. Check back when the next window opens.
+          </p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
-            {upcoming.map((m) => (
+            {open.map((m) => (
               <Link
                 key={m.id}
                 href={`/matches/${m.id}`}
@@ -57,7 +74,7 @@ export default async function MatchesPage() {
                     <span className="text-[var(--muted)]">v</span> {m.awayTeam}
                   </div>
                   <div className="mt-1 text-sm text-[var(--muted)]">
-                    {formatKickoff(m.kickoffAt)}
+                    Kickoff {formatKickoff(m.kickoffAt)}
                   </div>
                 </div>
                 <span className="chip">
@@ -69,6 +86,35 @@ export default async function MatchesPage() {
           </div>
         )}
       </section>
+
+      {opensSoon.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
+            Opens soon
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {opensSoon.map((m) => (
+              <div
+                key={m.id}
+                className="card flex items-center justify-between p-5 opacity-80"
+              >
+                <div>
+                  <div className="mb-1 text-xs text-[var(--muted)]">{m.stage}</div>
+                  <div className="text-lg font-semibold">
+                    {m.homeTeam}{" "}
+                    <span className="text-[var(--muted)]">v</span> {m.awayTeam}
+                  </div>
+                  <div className="mt-1 flex items-center gap-1 text-sm text-[var(--muted)]">
+                    <Clock weight="duotone" className="size-3.5" />
+                    Opens {formatPredictionOpensAt(m.kickoffAt)}
+                  </div>
+                </div>
+                <span className="chip">Soon</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">

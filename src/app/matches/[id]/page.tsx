@@ -2,10 +2,11 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { parseJson } from "@/lib/json";
-import { formatKickoff, isLocked } from "@/lib/format";
+import { formatKickoff, isPredictionLocked, isPredictionOpen, isPredictionTooEarly, formatPredictionOpensAt } from "@/lib/format";
 import { MatchResult } from "@/lib/scoring";
 import { solanaCluster } from "@/lib/config";
 import { MatchPredictions, MatchData } from "@/components/MatchPredictions";
+import { ensureMatchesSynced } from "@/lib/matchSync";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export default async function MatchPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  await ensureMatchesSynced();
   const match = await prisma.match.findUnique({ where: { id } });
   if (!match) notFound();
 
@@ -51,7 +53,10 @@ export default async function MatchPage({
     id: match.id,
     homeTeam: match.homeTeam,
     awayTeam: match.awayTeam,
-    locked: isLocked(match.kickoffAt),
+    locked: isPredictionLocked(match.kickoffAt),
+    predictable: isPredictionOpen(match.kickoffAt),
+    tooEarly: isPredictionTooEarly(match.kickoffAt),
+    opensAtLabel: formatPredictionOpensAt(match.kickoffAt),
     status: match.status,
     result,
   };
@@ -86,7 +91,11 @@ export default async function MatchPage({
             </div>
           ) : (
             <div className="text-sm text-[var(--muted)]">
-              {matchData.locked ? "Locked" : `Kickoff ${formatKickoff(match.kickoffAt)}`}
+              {matchData.locked
+                ? "Locked"
+                : matchData.tooEarly
+                ? `Opens ${matchData.opensAtLabel}`
+                : `Kickoff ${formatKickoff(match.kickoffAt)}`}
             </div>
           )}
         </div>

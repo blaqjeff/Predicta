@@ -4,6 +4,7 @@ import { ok, fail, route } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { verifyRevertPayment } from "@/lib/solana";
 import { revertFeeLamports, revertFeeUsdcBase } from "@/lib/config";
+import { isPredictionLocked, isPredictionOpen } from "@/lib/predictionWindow";
 
 export const POST = route(async (req: NextRequest) => {
   const user = await requireUser();
@@ -29,8 +30,11 @@ export const POST = route(async (req: NextRequest) => {
   if (prediction.status === "settled") {
     return fail("This prediction is already settled", 409);
   }
-  if (new Date() >= prediction.match.kickoffAt) {
+  if (isPredictionLocked(prediction.match.kickoffAt)) {
     return fail("This match has kicked off; predictions are locked", 423);
+  }
+  if (!isPredictionOpen(prediction.match.kickoffAt)) {
+    return fail("Predictions are not open yet for this match", 423);
   }
 
   // Reject reused transactions.

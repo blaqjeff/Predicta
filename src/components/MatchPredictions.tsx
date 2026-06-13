@@ -39,6 +39,9 @@ export interface MatchData {
   homeTeam: string;
   awayTeam: string;
   locked: boolean;
+  predictable: boolean;
+  tooEarly: boolean;
+  opensAtLabel: string;
   status: string;
   result: { homeGoals: number; awayGoals: number; corners?: number } | null;
 }
@@ -118,6 +121,19 @@ export function MatchPredictions({
         </div>
       )}
 
+      {match.tooEarly && (
+        <div className="card border-[var(--border)] p-4 text-sm text-[var(--muted)]">
+          Predictions open at <span className="text-[var(--foreground)]">{match.opensAtLabel}</span>{" "}
+          (midnight the day before kickoff, WAT).
+        </div>
+      )}
+
+      {match.locked && (
+        <div className="card p-4 text-sm text-[var(--muted)]">
+          This match has kicked off. Predictions are locked.
+        </div>
+      )}
+
       {track && (
         <div className="space-y-3">
           {track.categories.map((cat) => (
@@ -127,7 +143,7 @@ export function MatchPredictions({
               trackId={track.id}
               category={cat}
               accent={accent}
-              canPredict={Boolean(user) && !match.locked}
+              canPredict={Boolean(user) && match.predictable}
               existing={predictions[`${track.id}:${cat.id}`]}
               onChanged={loadPredictions}
             />

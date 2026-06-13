@@ -73,6 +73,12 @@ The client reads football-data.org **response headers** on every call to avoid h
 
 If quota is exhausted the client waits for the reset window; HTTP 429 triggers one automatic retry. Settlement responses include the last observed rate-limit snapshot as `footballDataRateLimit`.
 
+### Match sync and prediction windows
+
+Fixtures are **not** admin-uploaded. When `FOOTBALL_DATA_TOKEN` is set, visiting `/`, `/matches`, or a match page triggers a throttled sync from football-data.org (max once per 5 minutes per server instance). The settlement cron also syncs every 30 minutes.
+
+Predictions **open** at **00:00 on the calendar day before kickoff** in `MATCH_DAY_TIMEZONE` (default `Africa/Lagos`, WAT). They **lock** at kickoff. Example: a Tuesday 2am WAT kickoff is open from Monday 00:00 WAT.
+
 ## How it works
 
 ### Auth

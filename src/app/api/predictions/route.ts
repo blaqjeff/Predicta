@@ -4,6 +4,11 @@ import { ok, fail, route } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
 import { validatePredictionValue } from "@/lib/validation";
 import { stringifyJson } from "@/lib/json";
+import {
+  isPredictionLocked,
+  isPredictionOpen,
+  formatPredictionOpensAt,
+} from "@/lib/predictionWindow";
 
 export const dynamic = "force-dynamic";
 
@@ -33,8 +38,14 @@ export const POST = route(async (req: NextRequest) => {
 
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) return fail("Match not found", 404);
-  if (new Date() >= match.kickoffAt) {
+  if (isPredictionLocked(match.kickoffAt)) {
     return fail("Predictions are locked for this match (kicked off)", 423);
+  }
+  if (!isPredictionOpen(match.kickoffAt)) {
+    return fail(
+      `Predictions open at ${formatPredictionOpensAt(match.kickoffAt)}`,
+      423
+    );
   }
 
   const track = await prisma.track.findUnique({ where: { id: trackId } });

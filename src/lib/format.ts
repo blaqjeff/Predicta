@@ -18,6 +18,12 @@ export function shortAddress(addr?: string | null): string {
   return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
 }
 
-export function isLocked(kickoffAt: Date | string): boolean {
-  return new Date() >= new Date(kickoffAt);
-}
+export {
+  isLocked,
+  isPredictionLocked,
+  isPredictionOpen,
+  isPredictionTooEarly,
+  getPredictionOpensAt,
+  formatPredictionOpensAt,
+  getMatchDayTimezone,
+} from "./predictionWindow";
