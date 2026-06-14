@@ -25,7 +25,7 @@ export const GET = route(async (req: NextRequest) => {
   if (!trackId) return fail("No track available", 404);
 
   const entries = await prisma.leaderboardEntry.findMany({
-    where: { trackId },
+    where: { trackId, totalPoints: { gt: 0 } },
     orderBy: [{ totalPoints: "desc" }, { updatedAt: "asc" }],
     take: limit,
     include: { user: { select: { id: true, username: true, xHandle: true } } },

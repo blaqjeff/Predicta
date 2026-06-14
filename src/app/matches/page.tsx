@@ -10,6 +10,7 @@ import {
   isPredictionTooEarly,
 } from "@/lib/format";
 import { MatchResult } from "@/lib/scoring";
+import { apiMatchWhere } from "@/lib/matchQuery";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ function ResultBadge({ result }: { result: string | null }) {
 
 export default async function MatchesPage() {
   const matches = await prisma.match.findMany({
-    where: { externalId: { not: null } },
+    where: apiMatchWhere(),
     orderBy: { kickoffAt: "asc" },
   });
 
@@ -43,11 +44,20 @@ export default async function MatchesPage() {
           Matches
         </h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Fixtures are loaded from the database (updated by the daily sync job).
-          Predictions open at midnight the day before kickoff (WAT) and lock at
-          kickoff.
+          World Cup fixtures from football-data.org. Predictions open at midnight
+          the day before kickoff (WAT) and lock at kickoff.
         </p>
       </div>
+
+      {matches.length === 0 && (
+        <div className="card border-dashed p-6 text-sm text-[var(--muted)]">
+          No fixtures loaded yet. An admin can run settlement from{" "}
+          <Link href="/admin" className="text-[var(--accent)] underline">
+            /admin
+          </Link>{" "}
+          or wait for the daily sync job.
+        </div>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">

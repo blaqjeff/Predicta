@@ -1,4 +1,6 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
+import { SEED_MATCH_PREFIX } from "./matchQuery";
 import { stringifyJson } from "./json";
 import {
   isSportsApiConfigured,
@@ -119,16 +121,21 @@ export async function shouldForceMatchSync(): Promise<boolean> {
 
   const activeCount = await prisma.match.count({
     where: {
-      externalId: { not: null },
-      OR: [
-        { status: "live" },
-        { status: "finished" },
+      AND: [
+        { externalId: { not: null } },
+        { NOT: { externalId: { startsWith: SEED_MATCH_PREFIX } } },
         {
-          status: "scheduled",
-          kickoffAt: { gte: from, lte: to },
+          OR: [
+            { status: "live" },
+            { status: "finished" },
+            {
+              status: "scheduled",
+              kickoffAt: { gte: from, lte: to },
+            },
+          ],
         },
       ],
-    },
+    } satisfies Prisma.MatchWhereInput,
   });
 
   return activeCount > 0;

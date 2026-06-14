@@ -11,6 +11,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { CATEGORY_DEFS } from "@/lib/categories";
 import { formatKickoff, formatPoints, isPredictionOpen } from "@/lib/format";
+import { apiMatchWhere } from "@/lib/matchQuery";
 import { Reveal } from "@/components/Reveal";
 
 export const dynamic = "force-dynamic";
@@ -27,14 +28,14 @@ export default async function Home() {
   const mainTrack = await prisma.track.findFirst({ where: { isMain: true } });
   const topEntries = mainTrack
     ? await prisma.leaderboardEntry.findMany({
-        where: { trackId: mainTrack.id },
+        where: { trackId: mainTrack.id, totalPoints: { gt: 0 } },
         orderBy: { totalPoints: "desc" },
         take: 4,
         include: { user: { select: { username: true } } },
       })
     : [];
   const upcomingRaw = await prisma.match.findMany({
-    where: { externalId: { not: null }, kickoffAt: { gt: new Date() } },
+    where: apiMatchWhere({ kickoffAt: { gt: new Date() } }),
     orderBy: { kickoffAt: "asc" },
     take: 6,
   });

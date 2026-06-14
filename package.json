@@ -12,6 +12,8 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "db:purge-demo": "tsx scripts/purge-demo-data.ts",
+    "sync:matches": "tsx scripts/sync-matches.ts",
     "db:reset": "prisma migrate reset --force"
   },
   "prisma": {
@@ -26,11 +28,11 @@
     "jose": "^6.2.3",
     "motion": "^12.40.0",
     "next": "16.2.9",
+    "prisma": "^6.19.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "tweetnacl": "^1.0.3",
-    "zod": "^4.4.3",
-    "prisma": "^6.19.3"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -41,6 +43,7 @@
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vercel": "^54.13.0"
   }
 }

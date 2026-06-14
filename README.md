@@ -40,7 +40,9 @@ onchain hash of every settled result.
 npm install
 cp .env.example .env      # fill in values (works out of the box for local dev)
 npm run db:migrate        # create the SQLite db + apply migrations
-npm run db:seed           # seed categories, tracks, demo matches + predictions
+npm run db:seed           # seed categories + tracks only (no demo fixtures)
+npm run db:purge-demo     # remove seed/demo matches and users from the DB
+npm run sync:matches      # pull World Cup fixtures from football-data.org
 npm run dev
 ```
 
@@ -127,8 +129,9 @@ also enter results manually and settle individual matches in `/admin`.
 2. Vercel will add env vars automatically. **You do not need to copy connection strings** — Neon sets `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct). Prisma reads those names directly.
 3. Set the rest: `SESSION_SECRET`, `CRON_SECRET`, `FOOTBALL_DATA_TOKEN`, `NEXT_PUBLIC_APP_URL` (your production URL), X OAuth redirect URLs, Solana vars, etc.
 4. Redeploy. The build runs `prisma generate`, `prisma migrate deploy`, then `next build`.
-5. After the first successful deploy, seed categories/tracks once (from your machine with production env pulled, or Neon SQL console): `npm run db:seed`
-6. Run settlement once from `/admin` or hit `/api/settlement` with `x-cron-secret` to pull fixtures.
+5. After the first successful deploy, seed categories/tracks once: `npm run db:seed`
+6. Remove any old demo rows: `npm run db:purge-demo`
+7. Pull real World Cup fixtures: `npm run sync:matches` (or run settlement from `/admin`)
 
 `vercel.json` schedules daily settlement at 23:00 UTC. Vercel Cron on Hobby sends `Authorization: Bearer <CRON_SECRET>`, which the route accepts.
 
