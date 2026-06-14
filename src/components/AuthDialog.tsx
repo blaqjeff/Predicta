@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { api } from "@/lib/fetcher";
 import { useSession, SessionUser } from "./SessionProvider";
 import { connectWallet, signLoginMessage } from "@/lib/solanaClient";
@@ -18,20 +19,38 @@ export function AuthDialog({
 }) {
   const { refresh } = useSession();
   const [method, setMethod] = useState<Method>("email");
+  const [mounted, setMounted] = useState(false);
 
-  if (!open) return null;
+  useEffect(() => setMounted(true), []);
 
-  return (
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!open || !mounted) return null;
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/70 p-4 sm:p-6"
       onClick={onClose}
+      role="presentation"
     >
       <div
-        className="card w-full max-w-md p-6"
+        className="card my-auto w-full max-w-md p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-dialog-title"
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{title}</h2>
+          <h2 id="auth-dialog-title" className="text-lg font-semibold">
+            {title}
+          </h2>
           <button
             className="text-[var(--muted)] hover:text-[var(--foreground)]"
             onClick={onClose}
@@ -74,7 +93,8 @@ export function AuthDialog({
         )}
         {method === "x" && <XLogin />}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
