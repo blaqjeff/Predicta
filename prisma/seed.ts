@@ -37,7 +37,7 @@ async function main() {
     where: { slug: "world-cup" },
     create: {
       slug: "world-cup",
-      name: "World Cup Main Track",
+      name: "Predicta Main Track",
       isMain: true,
       branding: JSON.stringify({ color: "#16a34a", tagline: "The global board" }),
     },

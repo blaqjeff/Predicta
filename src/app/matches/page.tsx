@@ -44,7 +44,7 @@ export default async function MatchesPage() {
           Matches
         </h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          World Cup fixtures from football-data.org. Predictions open at midnight
+          Official tournament fixtures from football-data.org. Predictions open at midnight
           the day before kickoff (WAT) and lock at kickoff.
         </p>
       </div>

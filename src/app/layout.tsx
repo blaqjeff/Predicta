@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Predicta - Onchain World Cup Predictions",
+  title: "Predicta — Onchain Prediction Leaderboard",
   description:
-    "Predict World Cup matches across weighted categories and climb the onchain leaderboard.",
+    "Predict match outcomes across weighted categories and climb the onchain leaderboard.",
 };
 
 export default function RootLayout({
@@ -43,7 +43,7 @@ export default function RootLayout({
                 <span className="font-semibold text-[var(--foreground)]">
                   predict<span className="text-[var(--accent)]">a</span>
                 </span>{" "}
-                · onchain World Cup predictions
+                · onchain predictions
               </span>
               <span className="chip">Solana · Devnet</span>
             </div>

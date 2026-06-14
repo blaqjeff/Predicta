@@ -7,7 +7,7 @@ export async function sendOtpEmail(email: string, code: string): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   const from =
     process.env.EMAIL_FROM ||
-    "World Cup Predictions <onboarding@resend.dev>";
+    "Predicta <onboarding@resend.dev>";
 
   if (!apiKey) {
     console.log(
@@ -25,9 +25,9 @@ export async function sendOtpEmail(email: string, code: string): Promise<void> {
     body: JSON.stringify({
       from,
       to: email,
-      subject: "Your World Cup Predictions login code",
-      text: `Your login code is ${code}. It expires in 10 minutes.`,
-      html: `<p>Your login code is <strong style="font-size:20px">${code}</strong>.</p><p>It expires in 10 minutes.</p>`,
+      subject: "Your Predicta login code",
+      text: `Your Predicta login code is ${code}. It expires in 10 minutes.`,
+      html: `<p>Your Predicta login code is <strong style="font-size:20px">${code}</strong>.</p><p>It expires in 10 minutes.</p>`,
     }),
   });
   if (!res.ok) {
