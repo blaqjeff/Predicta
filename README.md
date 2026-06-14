@@ -124,9 +124,7 @@ also enter results manually and settle individual matches in `/admin`.
 **SQLite does not work on Vercel** — serverless functions have no persistent disk. You need Postgres.
 
 1. In the Vercel project, open **Storage** → **Connect Database** → **Neon** (free tier is fine).
-2. Vercel will add env vars. Map them in **Project → Settings → Environment Variables**:
-   - `DATABASE_URL` → Neon **pooled** connection string (often `POSTGRES_URL` from the integration)
-   - `DIRECT_DATABASE_URL` → Neon **direct** connection string (often `POSTGRES_URL_NON_POOLING`) — required for `prisma migrate deploy` at build time
+2. Vercel will add env vars automatically. **You do not need to copy connection strings** — Neon sets `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct). Prisma reads those names directly.
 3. Set the rest: `SESSION_SECRET`, `CRON_SECRET`, `FOOTBALL_DATA_TOKEN`, `NEXT_PUBLIC_APP_URL` (your production URL), X OAuth redirect URLs, Solana vars, etc.
 4. Redeploy. The build runs `prisma generate`, `prisma migrate deploy`, then `next build`.
 5. After the first successful deploy, seed categories/tracks once (from your machine with production env pulled, or Neon SQL console): `npm run db:seed`
