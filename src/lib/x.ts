@@ -1,16 +1,27 @@
 import { createHash, randomBytes } from "crypto";
 import { appUrl } from "./config";
 
-export const X_AUTHORIZE_URL = "https://twitter.com/i/oauth2/authorize";
+/** x.com avoids the twitter.com login loop many users hit during OAuth 2.0. */
+export const X_AUTHORIZE_URL = "https://x.com/i/oauth2/authorize";
 export const X_TOKEN_URL = "https://api.x.com/2/oauth2/token";
 export const X_USERINFO_URL = "https://api.x.com/2/users/me";
-export const X_SCOPES = ["tweet.read", "users.read"].join(" ");
+export const X_SCOPES = ["users.read", "tweet.read"].join(" ");
 
 export const X_STATE_COOKIE = "x_oauth_state";
 export const X_VERIFIER_COOKIE = "x_oauth_verifier";
+export const X_REDIRECT_COOKIE = "x_oauth_redirect";
 
-export function xRedirectUri(): string {
-  return `${appUrl}/api/auth/x/callback`;
+/** Prefer the live request origin on Vercel; fall back to configured app URL. */
+export function resolveAppOrigin(forwardedHost: string | null, forwardedProto: string | null, fallbackOrigin: string): string {
+  if (forwardedHost) {
+    const proto = forwardedProto?.split(",")[0]?.trim() || "https";
+    return `${proto}://${forwardedHost.split(",")[0]?.trim()}`;
+  }
+  return fallbackOrigin.replace(/\/$/, "");
+}
+
+export function xRedirectUri(origin = appUrl): string {
+  return `${origin.replace(/\/$/, "")}/api/auth/x/callback`;
 }
 
 export function isXConfigured(): boolean {
@@ -32,11 +43,11 @@ export function generatePkce() {
   return { verifier, challenge, state };
 }
 
-export function buildAuthorizeUrl(challenge: string, state: string): string {
+export function buildAuthorizeUrl(challenge: string, state: string, redirectUri: string): string {
   const params = new URLSearchParams({
     response_type: "code",
     client_id: process.env.X_CLIENT_ID!,
-    redirect_uri: xRedirectUri(),
+    redirect_uri: redirectUri,
     scope: X_SCOPES,
     state,
     code_challenge: challenge,
@@ -47,7 +58,8 @@ export function buildAuthorizeUrl(challenge: string, state: string): string {
 
 export async function exchangeCodeForToken(
   code: string,
-  verifier: string
+  verifier: string,
+  redirectUri: string
 ): Promise<string> {
   const basic = Buffer.from(
     `${process.env.X_CLIENT_ID}:${process.env.X_CLIENT_SECRET}`
@@ -62,7 +74,7 @@ export async function exchangeCodeForToken(
     body: new URLSearchParams({
       grant_type: "authorization_code",
       code,
-      redirect_uri: xRedirectUri(),
+      redirect_uri: redirectUri,
       code_verifier: verifier,
     }),
   });

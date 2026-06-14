@@ -6,6 +6,9 @@ import { setSession } from "@/lib/session";
 import {
   exchangeCodeForToken,
   fetchXUser,
+  resolveAppOrigin,
+  xRedirectUri,
+  X_REDIRECT_COOKIE,
   X_STATE_COOKIE,
   X_VERIFIER_COOKIE,
 } from "@/lib/x";
@@ -25,15 +28,25 @@ export async function GET(req: NextRequest) {
   const cookieStore = await cookies();
   const savedState = cookieStore.get(X_STATE_COOKIE)?.value;
   const verifier = cookieStore.get(X_VERIFIER_COOKIE)?.value;
+  const savedRedirect =
+    cookieStore.get(X_REDIRECT_COOKIE)?.value ??
+    xRedirectUri(
+      resolveAppOrigin(
+        req.headers.get("x-forwarded-host"),
+        req.headers.get("x-forwarded-proto"),
+        req.nextUrl.origin || appUrl
+      )
+    );
   cookieStore.delete(X_STATE_COOKIE);
   cookieStore.delete(X_VERIFIER_COOKIE);
+  cookieStore.delete(X_REDIRECT_COOKIE);
 
   if (!code || !state || !savedState || state !== savedState || !verifier) {
     return NextResponse.redirect(`${appUrl}/login?error=x_state`);
   }
 
   try {
-    const accessToken = await exchangeCodeForToken(code, verifier);
+    const accessToken = await exchangeCodeForToken(code, verifier, savedRedirect);
     const xUser = await fetchXUser(accessToken);
 
     const current = await getCurrentUser();
