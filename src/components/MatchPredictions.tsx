@@ -110,17 +110,6 @@ export function MatchPredictions({
         ))}
       </div>
 
-      {!user && (
-        <div className="card flex items-center justify-between p-4">
-          <span className="text-sm text-[var(--muted)]">
-            Sign in to place predictions and track your points.
-          </span>
-          <button className="btn-primary" onClick={() => setAuthOpen(true)}>
-            Sign in
-          </button>
-        </div>
-      )}
-
       {match.tooEarly && (
         <div className="card border-[var(--border)] p-4 text-sm text-[var(--muted)]">
           Predictions open at <span className="text-[var(--foreground)]">{match.opensAtLabel}</span>{" "}
@@ -143,7 +132,9 @@ export function MatchPredictions({
               trackId={track.id}
               category={cat}
               accent={accent}
-              canPredict={Boolean(user) && match.predictable}
+              inputsEnabled={match.predictable}
+              requiresSignIn={!user}
+              onRequireSignIn={() => setAuthOpen(true)}
               existing={predictions[`${track.id}:${cat.id}`]}
               onChanged={loadPredictions}
             />
@@ -151,7 +142,11 @@ export function MatchPredictions({
         </div>
       )}
 
-      <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
+      <AuthDialog
+        open={authOpen}
+        onClose={() => setAuthOpen(false)}
+        title="Sign in to save your pick"
+      />
     </div>
   );
 }
@@ -178,7 +173,9 @@ function CategoryRow({
   trackId,
   category,
   accent,
-  canPredict,
+  inputsEnabled,
+  requiresSignIn,
+  onRequireSignIn,
   existing,
   onChanged,
 }: {
@@ -186,7 +183,9 @@ function CategoryRow({
   trackId: string;
   category: CategoryDef;
   accent: string;
-  canPredict: boolean;
+  inputsEnabled: boolean;
+  requiresSignIn: boolean;
+  onRequireSignIn: () => void;
   existing?: ExistingPrediction;
   onChanged: () => void;
 }) {
@@ -235,9 +234,19 @@ function CategoryRow({
   const hasInput =
     category.key === "exact_score" ? home !== "" && away !== "" : option !== "";
 
+  const draftLabel = hasInput
+    ? describeValue(category.key, buildValue())
+    : null;
+
   async function submit() {
     setError(null);
     setMessage(null);
+
+    if (requiresSignIn) {
+      onRequireSignIn();
+      return;
+    }
+
     setBusy(true);
     try {
       const res = await api<{ action: string }>("/api/predictions", {
@@ -285,7 +294,6 @@ function CategoryRow({
         )}
       </div>
 
-      {/* Input controls */}
       {category.schema.inputType === "score" ? (
         <div className="flex items-center gap-2">
           <input
@@ -293,7 +301,7 @@ function CategoryRow({
             type="number"
             min={0}
             value={home}
-            disabled={!canPredict}
+            disabled={!inputsEnabled}
             onChange={(e) => setHome(e.target.value)}
             placeholder="0"
           />
@@ -303,7 +311,7 @@ function CategoryRow({
             type="number"
             min={0}
             value={away}
-            disabled={!canPredict}
+            disabled={!inputsEnabled}
             onChange={(e) => setAway(e.target.value)}
             placeholder="0"
           />
@@ -316,7 +324,7 @@ function CategoryRow({
           {(category.schema.options ?? []).map((o) => (
             <button
               key={o.value}
-              disabled={!canPredict}
+              disabled={!inputsEnabled}
               onClick={() => setOption(o.value)}
               className={`rounded-lg border px-3 py-1.5 text-sm transition ${
                 option === o.value
@@ -330,20 +338,27 @@ function CategoryRow({
         </div>
       )}
 
-      {/* Status line */}
       <div className="mt-3 flex items-center justify-between">
         <div className="text-xs text-[var(--muted)]">
           {existing
             ? `Your pick: ${describeValue(category.key, existingValue)}`
-            : "No prediction yet"}
+            : draftLabel
+              ? `Selected: ${draftLabel}`
+              : "No prediction yet"}
         </div>
-        {canPredict && (
+        {inputsEnabled && (
           <button
             className="btn-primary px-3 py-1.5"
             disabled={busy || !hasInput}
             onClick={submit}
           >
-            {busy ? "Saving..." : existing ? "Update" : "Place"}
+            {busy
+              ? "Saving..."
+              : requiresSignIn
+                ? "Sign in to place"
+                : existing
+                  ? "Update"
+                  : "Place"}
           </button>
         )}
       </div>
