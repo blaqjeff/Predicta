@@ -207,8 +207,8 @@ function WalletLogin({ onDone }: { onDone: () => void }) {
   return (
     <div className="space-y-3">
       <p className="text-sm text-[var(--muted)]">
-        Connect a Solana wallet and sign a message to prove ownership. This wallet
-        becomes your reward wallet automatically. No fee, no transaction.
+        Connect a Solana wallet and sign a message to prove ownership. This address
+        saves automatically — probably nothing. No fee, no transaction.
       </p>
       {error && <p className="text-sm text-red-400">{error}</p>}
       <button className="btn-accent2 w-full" disabled={busy} onClick={signIn}>

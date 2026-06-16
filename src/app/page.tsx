@@ -48,7 +48,7 @@ export default async function Home() {
         <Reveal className="space-y-7">
           <span className="eyebrow">
             <Lightning weight="fill" className="size-3.5" />
-            Hybrid Solana prediction game
+            probably nothing
           </span>
           <h1 className="text-5xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl">
             Call the match.

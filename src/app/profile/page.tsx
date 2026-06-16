@@ -163,10 +163,10 @@ function RewardWalletCard({
 
   return (
     <div className="card p-5">
-      <h2 className="mb-1 font-semibold">Reward wallet</h2>
+      <h2 className="mb-1 font-semibold">Wallet</h2>
       <p className="mb-3 text-sm text-[var(--muted)]">
-        Solana address where prizes are paid. Wallet sign-in sets this
-        automatically; otherwise add it here.
+        Solana address on file — probably nothing, but save one anyway. Wallet
+        sign-in sets this automatically; otherwise add it here.
       </p>
       <div className="flex gap-2">
         <input
