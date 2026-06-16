@@ -2,7 +2,13 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ok, fail, route } from "@/lib/api";
 import { requireAdmin } from "@/lib/auth";
-import { stringifyJson } from "@/lib/json";
+import { parseJson, stringifyJson } from "@/lib/json";
+import {
+  getMatchSettlementState,
+  reconcileMatchStatus,
+  settleMatchGoals,
+} from "@/lib/settlement";
+import type { MatchResult } from "@/lib/scoring";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +17,16 @@ export const GET = route(async () => {
   const matches = await prisma.match.findMany({
     orderBy: { kickoffAt: "asc" },
   });
-  return ok({ matches });
+
+  const enriched = await Promise.all(
+    matches.map(async (m) => {
+      await reconcileMatchStatus(m.id);
+      const settlement = await getMatchSettlementState(m.id);
+      return { ...m, settlement };
+    })
+  );
+
+  return ok({ matches: enriched });
 });
 
 /** Create or update a match, including entering an official result. */
@@ -35,7 +50,11 @@ export const POST = route(async (req: NextRequest) => {
     kickoffAt?: string;
     stage?: string;
     status?: string;
-    result?: { homeGoals: number; awayGoals: number; corners?: number } | null;
+    result?: Partial<{
+      homeGoals: number;
+      awayGoals: number;
+      corners?: number;
+    }> | null;
   };
 
   const resultStr =
@@ -47,9 +66,21 @@ export const POST = route(async (req: NextRequest) => {
 
   // Entering a result implicitly marks the match finished (ready to settle).
   const derivedStatus =
-    status ?? (result ? "finished" : undefined);
+    status ??
+    (result?.homeGoals !== undefined && result?.awayGoals !== undefined
+      ? "finished"
+      : undefined);
 
   if (id) {
+    const existing = await prisma.match.findUnique({ where: { id } });
+    if (!existing) return fail("Match not found", 404);
+
+    let mergedResultStr = resultStr;
+    if (result && existing.result) {
+      const prev = parseJson<MatchResult | null>(existing.result, null);
+      mergedResultStr = stringifyJson({ ...prev, ...result });
+    }
+
     const updated = await prisma.match.update({
       where: { id },
       data: {
@@ -58,10 +89,22 @@ export const POST = route(async (req: NextRequest) => {
         kickoffAt: kickoffAt ? new Date(kickoffAt) : undefined,
         stage,
         status: derivedStatus,
-        result: resultStr,
+        result: mergedResultStr ?? resultStr,
       },
     });
-    return ok({ match: updated });
+
+    const hasScore =
+      result?.homeGoals !== undefined && result?.awayGoals !== undefined;
+    if (hasScore) {
+      try {
+        await settleMatchGoals(id);
+      } catch {
+        // Score may be incomplete; admin can retry via settlement run.
+      }
+    }
+
+    const settlement = await getMatchSettlementState(id);
+    return ok({ match: updated, settlement });
   }
 
   if (!homeTeam || !awayTeam || !kickoffAt) {

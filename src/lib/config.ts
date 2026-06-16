@@ -6,23 +6,32 @@ export const appUrl =
   process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 export const solanaCluster =
-  process.env.NEXT_PUBLIC_SOLANA_CLUSTER ?? "devnet";
+  process.env.NEXT_PUBLIC_SOLANA_CLUSTER ?? "mainnet-beta";
 
 export const solanaRpcUrlPublic =
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ??
+  "https://api.mainnet-beta.solana.com";
 
 // Server-only RPC (falls back to the public one).
 export const solanaRpcUrl =
   process.env.SOLANA_RPC_URL ?? solanaRpcUrlPublic;
 
+export const solanaClusterLabel =
+  solanaCluster === "mainnet-beta" || solanaCluster === "mainnet"
+    ? "Mainnet"
+    : solanaCluster === "devnet"
+      ? "Devnet"
+      : solanaCluster;
+
 export const treasuryWallet = process.env.NEXT_PUBLIC_TREASURY_WALLET ?? "";
 
+/** Native USDC on Solana mainnet. */
 export const usdcMint =
   process.env.NEXT_PUBLIC_USDC_MINT ??
-  "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
 export const revertFeeSol = parseFloat(
-  process.env.NEXT_PUBLIC_REVERT_FEE_SOL ?? "0.0035"
+  process.env.NEXT_PUBLIC_REVERT_FEE_SOL ?? "0.0068"
 );
 
 export const revertFeeUsdc = parseFloat(

@@ -59,11 +59,12 @@ printed to the **server console**.
 | `SESSION_SECRET` | Signs session JWTs. Use a long random string. |
 | `X_CLIENT_ID` / `X_CLIENT_SECRET` | X OAuth app. Callback: `<app>/api/auth/x/callback`. |
 | `RESEND_API_KEY` / `EMAIL_FROM` | Send real OTP emails (Resend free tier). Optional locally. |
-| `SOLANA_RPC_URL` / `NEXT_PUBLIC_*` | RPC endpoint + public cluster config. Devnet by default. |
+| `SOLANA_RPC_URL` / `NEXT_PUBLIC_SOLANA_RPC_URL` | Helius (or other) mainnet RPC. Set **both** — server verifies txs; client sends them. |
+| `NEXT_PUBLIC_SOLANA_CLUSTER` | `mainnet-beta` for production (`devnet` for testing). |
 | `NEXT_PUBLIC_TREASURY_WALLET` | Receives revert fees. Required for the revert flow. |
-| `NEXT_PUBLIC_USDC_MINT` | USDC mint (devnet by default). |
-| `NEXT_PUBLIC_REVERT_FEE_SOL` / `_USDC` | Flat revert fee amounts (manually adjustable). |
-| `ORACLE_SECRET_KEY` | Signer that posts result-hash commitments onchain. Optional. |
+| `NEXT_PUBLIC_USDC_MINT` | Native USDC on mainnet: `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`. |
+| `NEXT_PUBLIC_REVERT_FEE_SOL` / `_USDC` | Flat revert fee (default **0.0068 SOL** / 0.5 USDC). |
+| `ORACLE_SECRET_KEY` | Mainnet-funded signer for result-hash memo commitments. Optional. |
 | `CRON_SECRET` | Authorizes the settlement endpoint for schedulers. |
 | `FOOTBALL_DATA_TOKEN` | Free football-data.org token (covers the World Cup via `WC`). Sent as the `X-Auth-Token` header. |
 | `FOOTBALL_DATA_COMPETITION` | League code (default `WC` = FIFA World Cup). |
@@ -135,5 +136,7 @@ also enter results manually and settle individual matches in `/admin`.
 
 `vercel.json` schedules daily settlement at 23:00 UTC. Vercel Cron on Hobby sends `Authorization: Bearer <CRON_SECRET>`, which the route accepts.
 
-- Set a strong `SESSION_SECRET` and `CRON_SECRET`, real X credentials, a funded
-  treasury, an oracle signer, and mainnet RPC + mainnet USDC mint when going live.
+- Set a strong `SESSION_SECRET` and `CRON_SECRET`, real X credentials, and **mainnet**
+  Solana env vars (Helius RPC, `mainnet-beta` cluster, mainnet USDC mint, 0.0068 SOL
+  revert fee). Fund the treasury (receives fees) and oracle wallet (posts memo txs).
+  Redeploy after changing any `NEXT_PUBLIC_*` variable — they are baked in at build time.

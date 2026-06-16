@@ -51,7 +51,7 @@ export const CATEGORY_DEFS: CategoryDef[] = [
     key: "corners",
     label: "Corners",
     description: "Pick the range for total corner kicks in the match.",
-    baseWeight: 200,
+    baseWeight: 150,
     inputType: "options",
     options: [
       { value: "0-7", label: "0 - 7 corners" },
@@ -65,7 +65,7 @@ export const CATEGORY_DEFS: CategoryDef[] = [
     key: "correct_result",
     label: "Correct Result",
     description: "Predict the winner (or a draw).",
-    baseWeight: 200,
+    baseWeight: 400,
     inputType: "options",
     options: [
       { value: "home", label: "Home win" },
@@ -78,7 +78,7 @@ export const CATEGORY_DEFS: CategoryDef[] = [
     key: "btts",
     label: "Both Teams To Score",
     description: "Will both teams score at least one goal?",
-    baseWeight: 150,
+    baseWeight: 350,
     inputType: "boolean",
     options: [
       { value: "yes", label: "Yes" },
@@ -91,6 +91,16 @@ export const CATEGORY_DEFS: CategoryDef[] = [
 export const CATEGORY_BY_KEY: Record<string, CategoryDef> = Object.fromEntries(
   CATEGORY_DEFS.map((c) => [c.key, c])
 );
+
+export const CORNERS_CATEGORY: CategoryKey = "corners";
+
+/** Categories scoreable from final score alone (API auto-settlement). */
+export const GOAL_CATEGORY_KEYS: CategoryKey[] = [
+  "exact_score",
+  "correct_result",
+  "total_goals",
+  "btts",
+];
 
 export function categorySchema(def: CategoryDef): string {
   return JSON.stringify({

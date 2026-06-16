@@ -1,7 +1,11 @@
 import { prisma } from "./prisma";
 import { parseJson } from "./json";
 import { scorePrediction, MatchResult, PredictionValue } from "./scoring";
-import { CategoryKey } from "./categories";
+import {
+  CategoryKey,
+  CORNERS_CATEGORY,
+  GOAL_CATEGORY_KEYS,
+} from "./categories";
 import {
   fetchCompetitionMatches,
   getLastFootballDataRateLimit,
@@ -17,6 +21,36 @@ export interface SyncSummary {
   rateLimit?: FootballDataRateLimit | null;
 }
 
+export interface SettleResult {
+  matchId: string;
+  scored: number;
+  unsettled: number;
+  commitmentTx: string | null;
+  affectedTracks: string[];
+  phase: "goals" | "corners" | "full";
+}
+
+export interface MatchSettlementState {
+  goalsSettled: boolean;
+  cornersPending: boolean;
+  cornerPredictionCount: number;
+  unsettledCornerPredictions: number;
+}
+
+/** Downgrade wrongly-settled matches that still have pending corner predictions. */
+export async function reconcileMatchStatus(matchId: string): Promise<void> {
+  const match = await prisma.match.findUnique({ where: { id: matchId } });
+  if (!match || match.status !== "settled") return;
+
+  const state = await getMatchSettlementState(matchId);
+  if (state.cornersPending) {
+    await prisma.match.update({
+      where: { id: matchId },
+      data: { status: "finished", settledAt: null },
+    });
+  }
+}
+
 /** Pulls matches from the free sports API and upserts them by externalId. */
 export async function syncMatchesFromApi(): Promise<SyncSummary> {
   const summary: SyncSummary = { created: 0, updated: 0, finishedWithResult: 0 };
@@ -29,7 +63,6 @@ export async function syncMatchesFromApi(): Promise<SyncSummary> {
       where: { externalId: m.externalId },
     });
 
-    // Preserve any admin-entered corner data already on the match result.
     const existingResult = existing?.result
       ? parseJson<MatchResult | null>(existing.result, null)
       : null;
@@ -44,8 +77,27 @@ export async function syncMatchesFromApi(): Promise<SyncSummary> {
         : existing?.result ?? null;
 
     if (existing) {
-      // Don't downgrade a match we've already settled locally.
-      if (existing.status === "settled") continue;
+      await reconcileMatchStatus(existing.id);
+      const current = await prisma.match.findUnique({
+        where: { id: existing.id },
+        select: { status: true, result: true },
+      });
+      if (!current) continue;
+      if (current.status === "settled") continue;
+
+      const preservedCorners = current.result
+        ? parseJson<MatchResult | null>(current.result, null)?.corners
+        : existingResult?.corners;
+      const resultForUpdate =
+        m.result !== null
+          ? JSON.stringify({
+              ...m.result,
+              ...(preservedCorners !== undefined
+                ? { corners: preservedCorners }
+                : {}),
+            })
+          : current.result;
+
       await prisma.match.update({
         where: { id: existing.id },
         data: {
@@ -53,8 +105,8 @@ export async function syncMatchesFromApi(): Promise<SyncSummary> {
           awayTeam: m.awayTeam,
           kickoffAt: new Date(m.kickoffAt),
           stage: m.stage,
-          status: m.status,
-          result: mergedResult,
+          status: m.status === "finished" ? "finished" : m.status,
+          result: resultForUpdate,
         },
       });
       summary.updated += 1;
@@ -77,32 +129,50 @@ export async function syncMatchesFromApi(): Promise<SyncSummary> {
   return summary;
 }
 
-export interface SettleResult {
-  matchId: string;
-  scored: number;
-  unsettled: number;
-  commitmentTx: string | null;
-  affectedTracks: string[];
+export async function getMatchSettlementState(
+  matchId: string
+): Promise<MatchSettlementState> {
+  const cornerPredictionCount = await prisma.prediction.count({
+    where: { matchId, category: { key: CORNERS_CATEGORY } },
+  });
+  const unsettledNonCorner = await prisma.prediction.count({
+    where: {
+      matchId,
+      category: { key: { not: CORNERS_CATEGORY } },
+      pointsAwarded: null,
+    },
+  });
+  const unsettledCornerPredictions = await prisma.prediction.count({
+    where: {
+      matchId,
+      category: { key: CORNERS_CATEGORY },
+      pointsAwarded: null,
+    },
+  });
+
+  return {
+    goalsSettled: unsettledNonCorner === 0,
+    cornersPending:
+      cornerPredictionCount > 0 && unsettledCornerPredictions > 0,
+    cornerPredictionCount,
+    unsettledCornerPredictions,
+  };
 }
 
-/**
- * Scores every prediction for a finished match, posts an on-chain commitment of
- * the result, and refreshes the affected leaderboards.
- */
-export async function settleMatch(matchId: string): Promise<SettleResult> {
-  const match = await prisma.match.findUnique({ where: { id: matchId } });
-  if (!match) throw new Error("Match not found");
-  if (!match.result) throw new Error("Match has no result to settle");
-
-  const result = parseJson<MatchResult | null>(match.result, null);
-  if (!result) throw new Error("Match result is invalid");
-
+async function scorePredictionsForCategories(
+  matchId: string,
+  result: MatchResult,
+  categoryKeys: CategoryKey[]
+): Promise<Pick<SettleResult, "scored" | "unsettled" | "affectedTracks">> {
   const predictions = await prisma.prediction.findMany({
-    where: { matchId },
+    where: {
+      matchId,
+      category: { key: { in: categoryKeys } },
+      pointsAwarded: null,
+    },
     include: { category: true },
   });
 
-  // Build a per-track weight lookup so track overrides apply.
   const trackIds = [...new Set(predictions.map((p) => p.trackId))];
   const trackCategories = await prisma.trackCategory.findMany({
     where: { trackId: { in: trackIds } },
@@ -133,7 +203,6 @@ export async function settleMatch(matchId: string): Promise<SettleResult> {
       weight
     );
     if (points === null) {
-      // Not scoreable yet (e.g. corners without data) - leave for later.
       unsettled += 1;
       continue;
     }
@@ -145,14 +214,37 @@ export async function settleMatch(matchId: string): Promise<SettleResult> {
     affectedTracks.add(p.trackId);
   }
 
-  // Post on-chain commitment of the result hash (best-effort).
-  let commitmentTx = match.resultCommitmentTx;
-  if (!commitmentTx) {
-    try {
-      commitmentTx = await postResultCommitment(match.id, match.result);
-    } catch {
-      commitmentTx = null;
-    }
+  return { scored, unsettled, affectedTracks: [...affectedTracks] };
+}
+
+async function maybeCommitResult(
+  matchId: string,
+  resultJson: string,
+  existingTx: string | null
+): Promise<string | null> {
+  if (existingTx) return existingTx;
+  try {
+    return await postResultCommitment(matchId, resultJson);
+  } catch {
+    return null;
+  }
+}
+
+async function finalizeMatchIfComplete(
+  matchId: string,
+  resultJson: string,
+  commitmentTx: string | null
+): Promise<void> {
+  const state = await getMatchSettlementState(matchId);
+  if (state.cornersPending) {
+    await prisma.match.update({
+      where: { id: matchId },
+      data: {
+        status: "finished",
+        resultCommitmentTx: commitmentTx,
+      },
+    });
+    return;
   }
 
   await prisma.match.update({
@@ -163,6 +255,35 @@ export async function settleMatch(matchId: string): Promise<SettleResult> {
       resultCommitmentTx: commitmentTx,
     },
   });
+}
+
+/** Score exact score, result, total goals, and BTTS from the pulled final score. */
+export async function settleMatchGoals(matchId: string): Promise<SettleResult> {
+  const match = await prisma.match.findUnique({ where: { id: matchId } });
+  if (!match) throw new Error("Match not found");
+  if (!match.result) throw new Error("Match has no result to settle");
+
+  const result = parseJson<MatchResult | null>(match.result, null);
+  if (!result) throw new Error("Match result is invalid");
+  if (
+    result.homeGoals === undefined ||
+    result.awayGoals === undefined ||
+    Number.isNaN(result.homeGoals) ||
+    Number.isNaN(result.awayGoals)
+  ) {
+    throw new Error("Match is missing a final score");
+  }
+
+  const { scored, unsettled, affectedTracks } =
+    await scorePredictionsForCategories(matchId, result, GOAL_CATEGORY_KEYS);
+
+  const commitmentTx = await maybeCommitResult(
+    matchId,
+    match.result,
+    match.resultCommitmentTx
+  );
+
+  await finalizeMatchIfComplete(matchId, match.result, commitmentTx);
 
   for (const trackId of affectedTracks) {
     await recalcLeaderboard(trackId);
@@ -172,22 +293,93 @@ export async function settleMatch(matchId: string): Promise<SettleResult> {
     matchId,
     scored,
     unsettled,
-    commitmentTx: commitmentTx ?? null,
-    affectedTracks: [...affectedTracks],
+    commitmentTx,
+    affectedTracks,
+    phase: "goals",
   };
 }
 
-/** Settles all finished, unsettled matches that have a result. */
+/** Score corner predictions after admin enters total corners. */
+export async function settleMatchCorners(matchId: string): Promise<SettleResult> {
+  const match = await prisma.match.findUnique({ where: { id: matchId } });
+  if (!match) throw new Error("Match not found");
+  if (!match.result) throw new Error("Match has no result to settle");
+
+  const result = parseJson<MatchResult | null>(match.result, null);
+  if (!result) throw new Error("Match result is invalid");
+  if (result.corners === undefined || result.corners === null) {
+    throw new Error("Enter total corners before settling the corners market");
+  }
+
+  const state = await getMatchSettlementState(matchId);
+  if (!state.goalsSettled) {
+    throw new Error("Goal markets must be settled before corners");
+  }
+
+  const { scored, unsettled, affectedTracks } =
+    await scorePredictionsForCategories(matchId, result, [CORNERS_CATEGORY]);
+
+  const commitmentTx = await maybeCommitResult(
+    matchId,
+    match.result,
+    match.resultCommitmentTx
+  );
+
+  await finalizeMatchIfComplete(matchId, match.result, commitmentTx);
+
+  for (const trackId of affectedTracks) {
+    await recalcLeaderboard(trackId);
+  }
+
+  return {
+    matchId,
+    scored,
+    unsettled,
+    commitmentTx,
+    affectedTracks,
+    phase: "corners",
+  };
+}
+
+/** Scores every category (legacy full settle). Prefer goals + corners split. */
+export async function settleMatch(matchId: string): Promise<SettleResult> {
+  const goals = await settleMatchGoals(matchId);
+  const state = await getMatchSettlementState(matchId);
+  if (!state.cornersPending) {
+    return { ...goals, phase: "full" };
+  }
+  const corners = await settleMatchCorners(matchId);
+  return {
+    matchId,
+    scored: goals.scored + corners.scored,
+    unsettled: corners.unsettled,
+    commitmentTx: corners.commitmentTx,
+    affectedTracks: [
+      ...new Set([...goals.affectedTracks, ...corners.affectedTracks]),
+    ],
+    phase: "full",
+  };
+}
+
+/** Auto-settle goal markets for every finished match with a final score. */
 export async function settleAllFinished(): Promise<SettleResult[]> {
   const matches = await prisma.match.findMany({
-    where: { status: "finished", result: { not: null } },
+    where: {
+      status: { in: ["finished", "settled"] },
+      result: { not: null },
+    },
   });
+
   const results: SettleResult[] = [];
   for (const m of matches) {
     try {
-      results.push(await settleMatch(m.id));
+      await reconcileMatchStatus(m.id);
+      const state = await getMatchSettlementState(m.id);
+      if (!state.goalsSettled) {
+        results.push(await settleMatchGoals(m.id));
+      }
     } catch {
-      // Skip matches that can't be settled yet.
+      // Skip matches missing scores or not ready yet.
     }
   }
   return results;
@@ -214,7 +406,7 @@ export async function recalcLeaderboard(trackId: string): Promise<void> {
   for (const row of rows) {
     processed += 1;
     if (lastPoints === null || row.totalPoints < lastPoints) {
-      rank = processed; // standard competition ranking (ties share a rank)
+      rank = processed;
       lastPoints = row.totalPoints;
     }
     await prisma.leaderboardEntry.upsert({

@@ -79,8 +79,8 @@ async function main() {
   });
   const sponsorWeights: Record<string, number> = {
     exact_score: 1200,
-    correct_result: 250,
-    btts: 200,
+    correct_result: 500,
+    btts: 400,
   };
   for (const [key, weight] of Object.entries(sponsorWeights)) {
     await prisma.trackCategory.upsert({

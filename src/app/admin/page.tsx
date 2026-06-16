@@ -7,6 +7,7 @@ import { formatKickoff } from "@/lib/format";
 
 interface AdminMatch {
   id: string;
+  externalId: string | null;
   homeTeam: string;
   awayTeam: string;
   kickoffAt: string;
@@ -14,6 +15,12 @@ interface AdminMatch {
   status: string;
   result: string | null;
   resultCommitmentTx: string | null;
+  settlement?: {
+    goalsSettled: boolean;
+    cornersPending: boolean;
+    cornerPredictionCount: number;
+    unsettledCornerPredictions: number;
+  };
 }
 
 interface TrackCategory {
@@ -73,7 +80,7 @@ function SettlementCard() {
           ? ` API quota: ${rl.requestsAvailable} request(s) left${rl.counterResetSeconds != null ? `, resets in ${rl.counterResetSeconds}s` : ""}.`
           : "";
       setResult(
-        `Synced from sports API and settled ${d.settledMatches} match(es).${quota}`
+        `Synced from sports API and auto-settled goal markets for ${d.settledMatches} match(es).${quota}`
       );
     } catch (e) {
       setResult((e as Error).message);
@@ -86,8 +93,9 @@ function SettlementCard() {
     <div className="card p-5">
       <h2 className="mb-1 font-semibold">Settlement</h2>
       <p className="mb-3 text-sm text-[var(--muted)]">
-        Pull results from the free sports API and auto-score every finished match.
-        A cron can hit <code>/api/settlement</code> with the <code>x-cron-secret</code> header.
+        Pull results from the free sports API and auto-settle goal markets (exact
+        score, winner, total goals, BTTS). Corner markets stay open until you enter
+        total corners on each match below.
       </p>
       <button className="btn-primary" disabled={busy} onClick={run}>
         {busy ? "Running..." : "Run settlement now"}
@@ -183,13 +191,22 @@ function AdminMatchRow({
   onChanged: () => void;
 }) {
   const existing = match.result ? JSON.parse(match.result) : null;
+  const goalsSettled = match.settlement?.goalsSettled ?? false;
+  const cornersPending = match.settlement?.cornersPending ?? false;
+  const hasCornerMarket = (match.settlement?.cornerPredictionCount ?? 0) > 0;
+  const isApiMatch = Boolean(match.externalId);
+  const scoreLocked =
+    isApiMatch || goalsSettled || match.status === "settled";
+
   const [home, setHome] = useState(existing?.homeGoals ?? "");
   const [away, setAway] = useState(existing?.awayGoals ?? "");
   const [corners, setCorners] = useState(existing?.corners ?? "");
   const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
 
-  async function saveResult() {
+  async function saveScore() {
     setBusy(true);
+    setMsg(null);
     try {
       await api("/api/admin/matches", {
         method: "POST",
@@ -198,28 +215,69 @@ function AdminMatchRow({
           result: {
             homeGoals: Number(home),
             awayGoals: Number(away),
-            ...(corners !== "" ? { corners: Number(corners) } : {}),
           },
         }),
       });
       onChanged();
+    } catch (e) {
+      setMsg((e as Error).message);
     } finally {
       setBusy(false);
     }
   }
 
-  async function settle() {
+  async function saveCorners() {
     setBusy(true);
+    setMsg(null);
     try {
-      await api("/api/admin/settle", {
+      await api("/api/admin/matches", {
         method: "POST",
-        body: JSON.stringify({ matchId: match.id }),
+        body: JSON.stringify({
+          id: match.id,
+          result: { corners: Number(corners) },
+        }),
       });
       onChanged();
+    } catch (e) {
+      setMsg((e as Error).message);
     } finally {
       setBusy(false);
     }
   }
+
+  async function settleCorners() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      if (corners !== "" && existing?.corners !== Number(corners)) {
+        await api("/api/admin/matches", {
+          method: "POST",
+          body: JSON.stringify({
+            id: match.id,
+            result: { corners: Number(corners) },
+          }),
+        });
+      }
+      await api("/api/admin/settle", {
+        method: "POST",
+        body: JSON.stringify({ matchId: match.id, phase: "corners" }),
+      });
+      onChanged();
+    } catch (e) {
+      setMsg((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const statusLabel =
+    match.status === "settled"
+      ? "fully settled"
+      : goalsSettled && cornersPending
+        ? "goals settled · corners pending"
+        : goalsSettled
+          ? "goals settled"
+          : match.status;
 
   return (
     <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-3">
@@ -229,50 +287,88 @@ function AdminMatchRow({
             {match.homeTeam} vs {match.awayTeam}
           </span>
           <span className="ml-2 text-xs text-[var(--muted)]">
-            {match.stage} · {formatKickoff(match.kickoffAt)} · {match.status}
+            {match.stage} · {formatKickoff(match.kickoffAt)} · {statusLabel}
           </span>
         </div>
       </div>
+
       <div className="flex flex-wrap items-center gap-2">
-        <input
-          className="input w-16 text-center"
-          type="number"
-          placeholder="H"
-          value={home}
-          onChange={(e) => setHome(e.target.value)}
-        />
-        <input
-          className="input w-16 text-center"
-          type="number"
-          placeholder="A"
-          value={away}
-          onChange={(e) => setAway(e.target.value)}
-        />
-        <input
-          className="input w-24 text-center"
-          type="number"
-          placeholder="corners"
-          value={corners}
-          onChange={(e) => setCorners(e.target.value)}
-        />
-        <button
-          className="btn-ghost px-3 py-1.5"
-          disabled={busy || home === "" || away === ""}
-          onClick={saveResult}
-        >
-          Save result
-        </button>
-        <button
-          className="btn-primary px-3 py-1.5"
-          disabled={busy || !match.result}
-          onClick={settle}
-        >
-          Settle
-        </button>
+        {scoreLocked ? (
+          <span className="chip font-mono">
+            {existing?.homeGoals ?? "—"} – {existing?.awayGoals ?? "—"}
+          </span>
+        ) : (
+          <>
+            <input
+              className="input w-16 text-center"
+              type="number"
+              placeholder="H"
+              value={home}
+              onChange={(e) => setHome(e.target.value)}
+            />
+            <input
+              className="input w-16 text-center"
+              type="number"
+              placeholder="A"
+              value={away}
+              onChange={(e) => setAway(e.target.value)}
+            />
+            <button
+              className="btn-ghost px-3 py-1.5"
+              disabled={busy || home === "" || away === ""}
+              onClick={saveScore}
+            >
+              Save score &amp; settle goals
+            </button>
+          </>
+        )}
+
+        {hasCornerMarket && (
+          <>
+            <input
+              className="input w-28 text-center"
+              type="number"
+              placeholder="Total corners"
+              value={corners}
+              disabled={match.status === "settled"}
+              onChange={(e) => setCorners(e.target.value)}
+            />
+            {cornersPending && (
+              <>
+                <button
+                  className="btn-ghost px-3 py-1.5"
+                  disabled={busy || corners === "" || match.status === "settled"}
+                  onClick={saveCorners}
+                >
+                  Save corners
+                </button>
+                <button
+                  className="btn-primary px-3 py-1.5"
+                  disabled={
+                    busy ||
+                    corners === "" ||
+                    !goalsSettled ||
+                    match.status === "settled"
+                  }
+                  onClick={settleCorners}
+                >
+                  Settle corners
+                </button>
+              </>
+            )}
+            {!cornersPending && match.status === "settled" && (
+              <span className="chip text-[var(--accent)]">
+                corners {existing?.corners ?? "—"}
+              </span>
+            )}
+          </>
+        )}
+
         {match.resultCommitmentTx && (
           <span className="chip text-[var(--accent)]">committed onchain</span>
         )}
       </div>
+      {msg && <p className="mt-2 text-xs text-red-400">{msg}</p>}
     </div>
   );
 }

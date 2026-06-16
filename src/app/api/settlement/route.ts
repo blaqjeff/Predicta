@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 /**
  * Settlement entrypoint. Intended to be hit by a scheduler (cron) with the
  * x-cron-secret header, or manually by an admin. Syncs results from the free
- * sports API and settles every finished match.
+ * sports API and auto-settles goal markets for every finished match.
  */
 async function handle(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;

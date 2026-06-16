@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "@/components/SessionProvider";
 import { Nav } from "@/components/Nav";
+import { solanaClusterLabel } from "@/lib/config";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,7 +46,7 @@ export default function RootLayout({
                 </span>{" "}
                 · onchain predictions
               </span>
-              <span className="chip">Solana · Devnet</span>
+              <span className="chip">Solana · {solanaClusterLabel}</span>
             </div>
           </footer>
         </SessionProvider>
