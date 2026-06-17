@@ -7,7 +7,7 @@ import { AuthDialog } from "@/components/AuthDialog";
 import { useSession } from "@/components/SessionProvider";
 
 const errorMessages: Record<string, string> = {
-  x_not_configured: "X sign-in isn't configured on this server yet.",
+  x_not_configured: "X sign-in is unavailable right now. Try email or wallet instead.",
   x_state: "X sign-in session expired. Please try again.",
   x_failed: "X sign-in failed. Please try again.",
 };

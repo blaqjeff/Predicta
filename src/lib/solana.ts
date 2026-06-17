@@ -58,7 +58,7 @@ export async function verifyRevertPayment(
   currency: "SOL" | "USDC"
 ): Promise<PaymentVerification> {
   if (!treasuryWallet) {
-    return { ok: false, reason: "Treasury wallet not configured" };
+    return { ok: false, reason: "Payments are unavailable right now. Please try again later." };
   }
   const conn = getConnection();
   const tx = await conn.getParsedTransaction(signature, {

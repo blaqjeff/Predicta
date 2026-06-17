@@ -59,7 +59,7 @@ export function RevertPanel({
       </p>
       {treasuryMissing && (
         <p className="mb-2 text-xs text-amber-400">
-          Treasury wallet not configured (set NEXT_PUBLIC_TREASURY_WALLET).
+          Revert payments are unavailable right now. Try again later.
         </p>
       )}
       <div className="flex gap-2">

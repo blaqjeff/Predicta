@@ -63,7 +63,7 @@ function connection(): Connection {
 
 export async function payRevertFeeSol(): Promise<string> {
   if (!clientConfig.treasuryWallet) {
-    throw new Error("Treasury wallet is not configured");
+    throw new Error("Payments are unavailable right now. Please try again later.");
   }
   const provider = getProvider();
   const from = new PublicKey(await connectWallet());
@@ -87,7 +87,7 @@ export async function payRevertFeeSol(): Promise<string> {
 
 export async function payRevertFeeUsdc(): Promise<string> {
   if (!clientConfig.treasuryWallet) {
-    throw new Error("Treasury wallet is not configured");
+    throw new Error("Payments are unavailable right now. Please try again later.");
   }
   const provider = getProvider();
   const from = new PublicKey(await connectWallet());

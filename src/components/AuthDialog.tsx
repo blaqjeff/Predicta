@@ -161,7 +161,7 @@ function EmailLogin({ onDone }: { onDone: () => void }) {
             onChange={(e) => setCode(e.target.value)}
           />
           <p className="mt-1 text-xs text-[var(--muted)]">
-            No email provider configured? Check the server console for the code.
+            Check your email — the code expires in 10 minutes.
           </p>
         </div>
       )}
